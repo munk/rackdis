@@ -9,11 +9,11 @@
     (init-field [ip "127.0.0.1"] [port 6379] [timeout 1])
     (field [out null] [in null])
     (super-new)
-    
+
     (define/private (send msg)
       (display msg out)
       (flush-output out))
-    
+
     (define/private (get-response)
       (let loop ([resp ""])
         (let ([p (sync/timeout timeout in)])
@@ -27,14 +27,14 @@
               (if (not (equal? resp ""))
                   (redis-decode resp)
                   "ERR timed out")))))
-    
+
     (define/private (apply-cmd cmd [args null])
       (if (null? args)
           (send (string-append cmd "\r\n"))
           (send (redis-encode-array (append (list cmd) (if (list? args) args (list args)))))))
 
     (define/public (set-timeout t) (set! timeout t))
-    
+
     (define/public (ping [msg null])
       (apply-cmd "PING" msg)
       (get-response))
@@ -42,7 +42,7 @@
     (define/public (auth password)
       (apply-cmd "AUTH" password)
       (get-response))
-    
+
     (define/public (echo msg)
       (apply-cmd "ECHO" msg)
       (get-response))
@@ -50,7 +50,7 @@
     (define/public (select index)
       (apply-cmd "SELECT" index)
       (get-response))
-    
+
     (define/public (quit)
       (apply-cmd "QUIT")
       (get-response))
@@ -58,11 +58,11 @@
     (define/public (exists keys)
       (apply-cmd "EXISTS" keys)
       (get-response))
-    
+
     (define/public (set key value)
       (apply-cmd "SET" (list key value))
       (get-response))
-    
+
     (define/public (get key)
       (apply-cmd "GET" key)
       (get-response))
@@ -78,11 +78,11 @@
     (define/public (msetnx data)
       (apply-cmd "MSETNX" data)
       (get-response))
-    
+
     (define/public (getset key value)
       (apply-cmd "GETSET" (list key value))
       (get-response))
-    
+
     (define/public (incr key)
       (apply-cmd "INCR" key)
       (get-response))
@@ -90,7 +90,7 @@
     (define/public (incrby key value)
       (apply-cmd "INCRBY" (list key value))
       (get-response))
-    
+
     (define/public (decr key)
       (apply-cmd "DECR" key)
       (get-response))
@@ -98,7 +98,7 @@
     (define/public (decrby key value)
       (apply-cmd "DECRBY" (list key value))
       (get-response))
-    
+
     (define/public (del key)
       (apply-cmd "DEL" key)
       (get-response))
@@ -106,7 +106,7 @@
     (define/public (setnx key value)
       (apply-cmd "SETNX" (list key value))
       (get-response))
-    
+
     (define/public (lpush key value)
       (apply-cmd "LPUSH" (if (list? value)
                              (append (list key) value)
@@ -118,7 +118,7 @@
                              (append (list key) value)
                              (list key value)))
       (get-response))
-    
+
     (define/public (lrange key min max)
       (apply-cmd "LRANGE" (list key min max))
       (get-response))
@@ -146,7 +146,7 @@
     (define/public (blpop keys timeout)
       (apply-cmd "BLPOP" (append keys (list timeout)))
       (get-response))
-    
+
     (define/public (brpop keys timeout)
       (apply-cmd "BRPOP" (append keys (list timeout)))
       (get-response))
@@ -162,11 +162,11 @@
     (define/public (srem key member)
       (apply-cmd "SREM" (list key member))
       (get-response))
-    
+
     (define/public (spop key)
       (apply-cmd "SPOP" key)
       (get-response))
-    
+
     (define/public (srandmember key)
       (apply-cmd "SRANDMEMBER" key)
       (get-response))
@@ -190,7 +190,7 @@
     (define/public (sinterstore destkey srckeys)
       (apply-cmd "SINTERSTORE" (list destkey srckeys))
       (get-response))
-    
+
     (define/public (sunion keys)
       (apply-cmd "SUNION" keys)
       (get-response))
@@ -234,7 +234,7 @@
     (define/public (zrangebyscore key min max)
       (apply-cmd "ZRANGEBYSCORE" (list key min max))
       (get-response))
-    
+
     (define/public (zremrangebyscore key min max)
       (apply-cmd "ZREMRANGEBYSCORE" (list key min max))
       (get-response))
@@ -250,7 +250,7 @@
     (define/public (zlexcount key min max)
       (apply-cmd "ZLEXCOUNT" (list key min max))
       (get-response))
-    
+
     (define/public (zrangebylex key min max)
       (apply-cmd "ZRANGEBYLEX" (list key min max))
       (get-response))
@@ -266,7 +266,7 @@
     (define/public (zrevrank key member)
       (apply-cmd "ZREVRANK" (list key member))
       (get-response))
-    
+
     (define/public (zrevrangebyscore key max min)
       (apply-cmd "ZREVRANGEBYSCORE" (list key max min))
       (get-response))
@@ -274,15 +274,15 @@
      (define/public (zremrangebyrank key start stop)
       (apply-cmd "ZREMRANGEBYSCORE" (list key start stop))
       (get-response))
-    
+
     (define/public (zremrangebylex key min max)
       (apply-cmd "ZREMRANGEBYLEX" (list key min max))
       (get-response))
-    
+
     (define/public (zunionstore dest keys)
       (apply-cmd "ZUNIONSTORE" (append (list dest) keys))
       (get-response))
-    
+
     (define/public (hmset key data)
       (apply-cmd "HMSET" (append (list key) data))
       (get-response))
@@ -294,11 +294,11 @@
     (define/public (hdel key fields)
       (apply-cmd "HDEL" (append (list key) fields))
       (get-response))
-    
+
     (define/public (hsetnx key field value)
       (apply-cmd "HSETNX" (list key field value))
       (get-response))
-    
+
     (define/public (hget key field)
       (apply-cmd "HGET" (list key field))
       (get-response))
@@ -326,7 +326,7 @@
     (define/public (concat key value)
       (apply-cmd "APPEND" (list key value))
       (get-response))
-    
+
     (define/public (strlen key)
       (apply-cmd "STRLEN" key)
       (get-response))
@@ -350,11 +350,11 @@
     (define/public (unwatch)
       (apply-cmd "UNWATCH")
       (get-response))
-    
+
     (define/public (getrange key start end)
       (apply-cmd "GETRANGE" (list key start end))
       (get-response))
-    
+
     (define/public (type key)
       (apply-cmd "TYPE" key)
       (get-response))
@@ -366,7 +366,7 @@
     (define/public (randomkey)
       (apply-cmd "RANDOMKEY")
       (get-response))
-    
+
     (define/public (rename oldkey newkey)
       (apply-cmd "RENAME" (list oldkey newkey))
       (get-response))
@@ -414,7 +414,7 @@
     (define/public (flushdb)
       (apply-cmd "FLUSHDB")
       (get-response))
-    
+
     (define/public (flushall)
       (apply-cmd "FLUSHALL")
       (get-response))
@@ -450,7 +450,7 @@
     (define/public (object subcommand [args null])
       (apply-cmd "OBJECT" (append (list subcommand) args))
       (get-response))
-    
+
     (define/public (slaveof host port)
       (apply-cmd "SLAVEOF" (list host port))
       (get-response))
@@ -474,7 +474,7 @@
     (define/public (punsubscribe pattern)
       (apply-cmd "PUNSUBSCRIBE" pattern)
       (get-response))
-    
+
     (define/public (init)
       (define-values (i o) (tcp-connect ip port))
       (set! in i)
