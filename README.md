@@ -19,3 +19,8 @@ Installation
 Execute `raco pkg install git://github.com/eu90h/rackdis` or use DrRacket.
 
 To uninstall, run `raco pkg remove rackdis`
+
+
+Running Tests
+============
+Execute `racket test.rkt`
