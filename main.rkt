@@ -1,481 +1,363 @@
 #lang racket
 (provide redis%)
 
-(require "resp.rkt" racket/tcp)
+(require "resp.rkt" "client.rkt" racket/tcp)
+
+#;(define (new-redis in port timeout)
+  (let ([client (new tcp-client% ip port timeout)])
+    (new redis% client)))
 
 (define redis%
   (class
       object%
-    (init-field [ip "127.0.0.1"] [port 6379] [timeout 1])
-    (field [out null] [in null])
+    (init-field [client (new tcp-client%)])
+    (field
+     [subscribed #f])
     (super-new)
 
-    (define/private (send msg)
-      (display msg out)
-      (flush-output out))
-
     (define/private (get-response)
-      (let loop ([resp ""])
-        (let ([p (sync/timeout timeout in)])
-          (if (input-port? p)
-              (let ([s (read-line p)])
-                (if (eof-object? s)
-                    (if (not (equal? resp ""))
-                        (redis-decode resp)
-                        "ERR timed out")
-                    (loop (string-append resp s "\n"))))
-              (if (not (equal? resp ""))
-                  (redis-decode resp)
-                  "ERR timed out")))))
+      (send client get-response))
 
     (define/private (apply-cmd cmd [args null])
-      (if (null? args)
-          (send (string-append cmd "\r\n"))
-          (send (redis-encode-array (append (list cmd) (if (list? args) args (list args)))))))
+      (send client apply-cmd cmd args))
 
-    (define/public (set-timeout t) (set! timeout t))
+    (define/private (apply-cmd* cmd [args null])
+      (send client apply-cmd cmd args))
+
+    (define/public (set-timeout t) (send client set-timeout t))
 
     (define/public (ping [msg null])
-      (apply-cmd "PING" msg)
-      (get-response))
+      (apply-cmd "PING" msg))
 
     (define/public (auth password)
-      (apply-cmd "AUTH" password)
-      (get-response))
+      (apply-cmd "AUTH" password))
 
     (define/public (echo msg)
-      (apply-cmd "ECHO" msg)
-      (get-response))
+      (apply-cmd "ECHO" msg))
 
     (define/public (select index)
-      (apply-cmd "SELECT" index)
-      (get-response))
+      (apply-cmd "SELECT" index))
 
     (define/public (quit)
-      (apply-cmd "QUIT")
-      (get-response))
+      (apply-cmd "QUIT"))
 
     (define/public (exists keys)
-      (apply-cmd "EXISTS" keys)
-      (get-response))
+      (apply-cmd "EXISTS" keys))
 
     (define/public (set key value)
-      (apply-cmd "SET" (list key value))
-      (get-response))
+      (apply-cmd "SET" (list key value)))
 
     (define/public (get key)
-      (apply-cmd "GET" key)
-      (get-response))
+      (apply-cmd "GET" key))
 
     (define/public (mget keys)
-      (apply-cmd "MGET" keys)
-      (get-response))
+      (apply-cmd "MGET" keys))
 
     (define/public (mset data)
-      (apply-cmd "MSET" data)
-      (get-response))
+      (apply-cmd "MSET" data))
 
     (define/public (msetnx data)
-      (apply-cmd "MSETNX" data)
-      (get-response))
+      (apply-cmd "MSETNX" data))
 
     (define/public (getset key value)
-      (apply-cmd "GETSET" (list key value))
-      (get-response))
+      (apply-cmd "GETSET" (list key value)))
 
     (define/public (incr key)
-      (apply-cmd "INCR" key)
-      (get-response))
+      (apply-cmd "INCR" key))
 
     (define/public (incrby key value)
-      (apply-cmd "INCRBY" (list key value))
-      (get-response))
+      (apply-cmd "INCRBY" (list key value)))
 
     (define/public (decr key)
-      (apply-cmd "DECR" key)
-      (get-response))
+      (apply-cmd "DECR" key))
 
     (define/public (decrby key value)
-      (apply-cmd "DECRBY" (list key value))
-      (get-response))
+      (apply-cmd "DECRBY" (list key value)))
 
     (define/public (del key)
-      (apply-cmd "DEL" key)
-      (get-response))
+      (apply-cmd "DEL" key))
 
     (define/public (setnx key value)
-      (apply-cmd "SETNX" (list key value))
-      (get-response))
+      (apply-cmd "SETNX" (list key value)))
 
     (define/public (lpush key value)
       (apply-cmd "LPUSH" (if (list? value)
                              (append (list key) value)
-                             (list key value)))
-      (get-response))
+                             (list key value))))
 
     (define/public (rpush key value)
       (apply-cmd "RPUSH" (if (list? value)
                              (append (list key) value)
-                             (list key value)))
-      (get-response))
+                             (list key value))))
 
     (define/public (lrange key min max)
-      (apply-cmd "LRANGE" (list key min max))
-      (get-response))
+      (apply-cmd "LRANGE" (list key min max)))
 
     (define/public (ltrim key start end)
-      (apply-cmd "LTRIM" (list key start end))
-      (get-response))
+      (apply-cmd "LTRIM" (list key start end)))
 
     (define/public (lindex key index)
-      (apply-cmd "LINDEX" (list key index))
-      (get-response))
+      (apply-cmd "LINDEX" (list key index)))
 
     (define/public (lset key index value)
-      (apply-cmd "LSET" (list key index value))
-      (get-response))
+      (apply-cmd "LSET" (list key index value)))
 
     (define/public (lpop key string)
-      (apply-cmd "LPOP" (list key string))
-      (get-response))
+      (apply-cmd "LPOP" (list key string)))
 
     (define/public (rpop key string)
-      (apply-cmd "RPOP" (list key string))
-      (get-response))
+      (apply-cmd "RPOP" (list key string)))
 
     (define/public (blpop keys timeout)
-      (apply-cmd "BLPOP" (append keys (list timeout)))
-      (get-response))
+      (apply-cmd "BLPOP" (append keys (list timeout))))
 
     (define/public (brpop keys timeout)
-      (apply-cmd "BRPOP" (append keys (list timeout)))
-      (get-response))
+      (apply-cmd "BRPOP" (append keys (list timeout))))
 
     (define/public (rpoplpush srckey destkey)
-      (apply-cmd "RPOPLPUSH" (list srckey destkey))
-      (get-response))
+      (apply-cmd "RPOPLPUSH" (list srckey destkey)))
 
     (define/public (sadd key member)
-      (apply-cmd "SADD" (list key member))
-      (get-response))
+      (apply-cmd "SADD" (list key member)))
 
     (define/public (srem key member)
-      (apply-cmd "SREM" (list key member))
-      (get-response))
+      (apply-cmd "SREM" (list key member)))
 
     (define/public (spop key)
-      (apply-cmd "SPOP" key)
-      (get-response))
+      (apply-cmd "SPOP" key))
 
     (define/public (srandmember key)
-      (apply-cmd "SRANDMEMBER" key)
-      (get-response))
+      (apply-cmd "SRANDMEMBER" key))
 
     (define/public (smove srckey destkey member)
-      (apply-cmd "SMOVE" (list srckey destkey member))
-      (get-response))
+      (apply-cmd "SMOVE" (list srckey destkey member)))
 
     (define/public (scard key)
-      (apply-cmd "SCARD" key)
-      (get-response))
+      (apply-cmd "SCARD" key))
 
     (define/public (sismember key member)
-      (apply-cmd "SISMEMBER" (list key member))
-      (get-response))
+      (apply-cmd "SISMEMBER" (list key member)))
 
     (define/public (sinter keys)
-      (apply-cmd "SINTER" keys)
-      (get-response))
+      (apply-cmd "SINTER" keys))
 
     (define/public (sinterstore destkey srckeys)
-      (apply-cmd "SINTERSTORE" (list destkey srckeys))
-      (get-response))
+      (apply-cmd "SINTERSTORE" (list destkey srckeys)))
 
     (define/public (sunion keys)
-      (apply-cmd "SUNION" keys)
-      (get-response))
+      (apply-cmd "SUNION" keys))
 
     (define/public (sunionstore destkey srckeys)
-      (apply-cmd "SUNIONSTORE" (list destkey srckeys))
-      (get-response))
+      (apply-cmd "SUNIONSTORE" (list destkey srckeys)))
 
     (define/public (sdiff keys)
-      (apply-cmd "SDIFF" keys)
-      (get-response))
+      (apply-cmd "SDIFF" keys))
 
     (define/public (sdiffstore destkey srckeys)
-      (apply-cmd "SDIFFSTORE" (list destkey srckeys))
-      (get-response))
+      (apply-cmd "SDIFFSTORE" (list destkey srckeys)))
 
     (define/public (smembers key)
-      (apply-cmd "SMEMBERS" key)
-      (get-response))
+      (apply-cmd "SMEMBERS" key))
 
     (define/public (zadd key data)
-      (apply-cmd "ZADD" (append (list key) data))
-      (get-response))
+      (apply-cmd "ZADD" (append (list key) data)))
 
     (define/public (zrem key member)
-      (apply-cmd "ZREM" (append (list key) (if (list? member) member (list member))))
-      (get-response))
+      (apply-cmd "ZREM" (append (list key) (if (list? member) member (list member)))))
 
     (define/public (zincrby key incr member)
-      (apply-cmd "ZINCRBY" (list key incr member))
-      (get-response))
+      (apply-cmd "ZINCRBY" (list key incr member)))
 
     (define/public (zrange key start end)
-      (apply-cmd "ZRANGE" (list key start end))
-      (get-response))
+      (apply-cmd "ZRANGE" (list key start end)))
 
     (define/public (zrevrange key start end)
-      (apply-cmd "ZREVRANGE" (list key start end))
-      (get-response))
+      (apply-cmd "ZREVRANGE" (list key start end)))
 
     (define/public (zrangebyscore key min max)
-      (apply-cmd "ZRANGEBYSCORE" (list key min max))
-      (get-response))
+      (apply-cmd "ZRANGEBYSCORE" (list key min max)))
 
     (define/public (zremrangebyscore key min max)
-      (apply-cmd "ZREMRANGEBYSCORE" (list key min max))
-      (get-response))
+      (apply-cmd "ZREMRANGEBYSCORE" (list key min max)))
 
     (define/public (zcard key)
-      (apply-cmd "ZCARD" key)
-      (get-response))
+      (apply-cmd "ZCARD" key))
 
     (define/public (zscore key member)
-      (apply-cmd "ZSCORE" (list key member))
-      (get-response))
+      (apply-cmd "ZSCORE" (list key member)))
 
     (define/public (zlexcount key min max)
-      (apply-cmd "ZLEXCOUNT" (list key min max))
-      (get-response))
+      (apply-cmd "ZLEXCOUNT" (list key min max)))
 
     (define/public (zrangebylex key min max)
-      (apply-cmd "ZRANGEBYLEX" (list key min max))
-      (get-response))
+      (apply-cmd "ZRANGEBYLEX" (list key min max)))
 
     (define/public (zinterstore dest keys)
-      (apply-cmd "ZINTERSTORE" (append (list dest) keys))
-      (get-response))
+      (apply-cmd "ZINTERSTORE" (append (list dest) keys)))
 
     (define/public (zcount key min max)
-      (apply-cmd "ZCOUNT" (list key min max))
-      (get-response))
+      (apply-cmd "ZCOUNT" (list key min max)))
 
     (define/public (zrevrank key member)
-      (apply-cmd "ZREVRANK" (list key member))
-      (get-response))
+      (apply-cmd "ZREVRANK" (list key member)))
 
     (define/public (zrevrangebyscore key max min)
-      (apply-cmd "ZREVRANGEBYSCORE" (list key max min))
-      (get-response))
+      (apply-cmd "ZREVRANGEBYSCORE" (list key max min)))
 
      (define/public (zremrangebyrank key start stop)
-      (apply-cmd "ZREMRANGEBYSCORE" (list key start stop))
-      (get-response))
+      (apply-cmd "ZREMRANGEBYSCORE" (list key start stop)))
 
     (define/public (zremrangebylex key min max)
-      (apply-cmd "ZREMRANGEBYLEX" (list key min max))
-      (get-response))
+      (apply-cmd "ZREMRANGEBYLEX" (list key min max)))
 
     (define/public (zunionstore dest keys)
-      (apply-cmd "ZUNIONSTORE" (append (list dest) keys))
-      (get-response))
+      (apply-cmd "ZUNIONSTORE" (append (list dest) keys)))
 
     (define/public (hmset key data)
-      (apply-cmd "HMSET" (append (list key) data))
-      (get-response))
+      (apply-cmd "HMSET" (append (list key) data)))
 
     (define/public (hvals key)
-      (apply-cmd "HVALS" key)
-      (get-response))
+      (apply-cmd "HVALS" key))
 
     (define/public (hdel key fields)
-      (apply-cmd "HDEL" (append (list key) fields))
-      (get-response))
+      (apply-cmd "HDEL" (append (list key) fields)))
 
     (define/public (hsetnx key field value)
-      (apply-cmd "HSETNX" (list key field value))
-      (get-response))
+      (apply-cmd "HSETNX" (list key field value)))
 
     (define/public (hget key field)
-      (apply-cmd "HGET" (list key field))
-      (get-response))
+      (apply-cmd "HGET" (list key field)))
 
     (define/public (hgetall key)
-      (apply-cmd "HGETALL" key)
-      (get-response))
+      (apply-cmd "HGETALL" key))
 
     (define/public (hincrby key field increment)
-      (apply-cmd "HINCRBY" (list key field increment))
-      (get-response))
+      (apply-cmd "HINCRBY" (list key field increment)))
 
     (define/public (hexists key field)
-      (apply-cmd "HEXISTS" (list key field))
-      (get-response))
+      (apply-cmd "HEXISTS" (list key field)))
 
     (define/public (hkeys key)
-      (apply-cmd "HKEYS" key)
-      (get-response))
+      (apply-cmd "HKEYS" key))
 
     (define/public (hlen key)
-      (apply-cmd "HLEN" key)
-      (get-response))
+      (apply-cmd "HLEN" key))
 
     (define/public (concat key value)
-      (apply-cmd "APPEND" (list key value))
-      (get-response))
+      (apply-cmd "APPEND" (list key value)))
 
     (define/public (strlen key)
-      (apply-cmd "STRLEN" key)
-      (get-response))
+      (apply-cmd "STRLEN" key))
 
     (define/public (bitcount key [start "0"] [end (number->string (string-length key))])
-      (apply-cmd "BITCOUNT" (list key start end))
-      (get-response))
+      (apply-cmd "BITCOUNT" (list key start end)))
 
     (define/public (bitop operation destkey key)
-      (apply-cmd "BITOP" (append (list operation destkey) (if (list? key) key (list key))))
-      (get-response))
+      (apply-cmd "BITOP" (append (list operation destkey) (if (list? key) key (list key)))))
 
     (define/public (bitpos key bit [start null] [end null])
-      (apply-cmd "BITPOS" (flatten (list key bit start end)))
-      (get-response))
+      (apply-cmd "BITPOS" (flatten (list key bit start end))))
 
     (define/public (watch key)
-      (apply-cmd "WATCH" key)
-      (get-response))
+      (apply-cmd "WATCH" key))
 
     (define/public (unwatch)
-      (apply-cmd "UNWATCH")
-      (get-response))
+      (apply-cmd "UNWATCH"))
 
     (define/public (getrange key start end)
-      (apply-cmd "GETRANGE" (list key start end))
-      (get-response))
+      (apply-cmd "GETRANGE" (list key start end)))
 
     (define/public (type key)
-      (apply-cmd "TYPE" key)
-      (get-response))
+      (apply-cmd "TYPE" key))
 
     (define/public (keys pattern)
-      (apply-cmd "KEYS" pattern)
-      (get-response))
+      (apply-cmd "KEYS" pattern))
 
     (define/public (randomkey)
-      (apply-cmd "RANDOMKEY")
-      (get-response))
+      (apply-cmd "RANDOMKEY"))
 
     (define/public (rename oldkey newkey)
-      (apply-cmd "RENAME" (list oldkey newkey))
-      (get-response))
+      (apply-cmd "RENAME" (list oldkey newkey)))
 
     (define/public (renamex oldkey newkey)
-      (apply-cmd "RENAMEX" (list oldkey newkey))
-      (get-response))
+      (apply-cmd "RENAMEX" (list oldkey newkey)))
 
     (define/public (config-get parameter)
-      (apply-cmd "CONFIG GET" parameter)
-      (get-response))
+      (apply-cmd "CONFIG GET" parameter))
 
     (define/public (config-set parameter value)
-      (apply-cmd "CONFIG SET" (list parameter value))
-      (get-response))
+      (apply-cmd "CONFIG SET" (list parameter value)))
 
     (define/public (config-rewrite)
-      (apply-cmd "CONFIG REWRITE")
-      (get-response))
+      (apply-cmd "CONFIG REWRITE"))
 
     (define/public (config-resetstat)
-      (apply-cmd "CONFIG RESETSTAT")
-      (get-response))
+      (apply-cmd "CONFIG RESETSTAT"))
 
     (define/public (dbsize)
-      (apply-cmd "DBSIZE")
-      (get-response))
+      (apply-cmd "DBSIZE"))
 
     (define/public (expire key seconds)
-      (apply-cmd "EXPIRE" (list key seconds))
-      (get-response))
+      (apply-cmd "EXPIRE" (list key seconds)))
 
     (define/public (expireat key unixtime)
-      (apply-cmd "EXPIREAT" (list key unixtime))
-      (get-response))
+      (apply-cmd "EXPIREAT" (list key unixtime)))
 
     (define/public (ttl key)
-      (apply-cmd "TTL" key)
-      (get-response))
+      (apply-cmd "TTL" key))
 
     (define/public (move key index)
-      (apply-cmd "MOVE" (list key index))
-      (get-response))
+      (apply-cmd "MOVE" (list key index)))
 
     (define/public (flushdb)
-      (apply-cmd "FLUSHDB")
-      (get-response))
+      (apply-cmd "FLUSHDB"))
 
     (define/public (flushall)
-      (apply-cmd "FLUSHALL")
-      (get-response))
+      (apply-cmd "FLUSHALL"))
 
     (define/public (save)
-      (apply-cmd "SAVE")
-      (get-response))
+      (apply-cmd "SAVE"))
 
     (define/public (bgsave)
-      (apply-cmd "BGSAVE")
-      (get-response))
+      (apply-cmd "BGSAVE"))
 
     (define/public (lastsave)
-      (apply-cmd "LASTSAVE")
-      (get-response))
+      (apply-cmd "LASTSAVE"))
 
     (define/public (bgrewriteaof)
-      (apply-cmd "BGREWRITEAOF")
-      (get-response))
+      (apply-cmd "BGREWRITEAOF"))
 
     (define/public (shutdown)
-      (apply-cmd "SHUTDOWN")
-      (get-response))
+      (apply-cmd "SHUTDOWN"))
 
     (define/public (info)
-      (apply-cmd "INFO")
-      (get-response))
+      (apply-cmd "INFO"))
 
     (define/public (monitor)
-      (apply-cmd "MONITOR")
-      (get-response))
+      (apply-cmd "MONITOR"))
 
     (define/public (object subcommand [args null])
-      (apply-cmd "OBJECT" (append (list subcommand) args))
-      (get-response))
+      (apply-cmd "OBJECT" (append (list subcommand) args)))
 
     (define/public (slaveof host port)
-      (apply-cmd "SLAVEOF" (list host port))
-      (get-response))
-
-    (define/public (subscribe channel)
-      (apply-cmd "SUBSCRIBE" channel)
-      (get-response))
+      (apply-cmd "SLAVEOF" (list host port)))
 
     (define/public (publish channel msg)
-      (apply-cmd "PUBLISH" (list channel msg))
-      (get-response))
+      (apply-cmd "PUBLISH" (list channel msg)))
+
+    (define/public (subscribe channel)
+      (set! subscribed #t)
+      (apply-cmd* "SUBSCRIBE" channel))
 
     (define/public (unsubscribe channel)
-      (apply-cmd "UNSUBSCRIBE" channel)
-      (get-response))
+      (apply-cmd* "UNSUBSCRIBE" channel))
 
     (define/public (psubscribe pattern)
-      (apply-cmd "PSUBSCRIBE" pattern)
-      (get-response))
+      (set! subscribed #t)
+      (apply-cmd* "PSUBSCRIBE" pattern))
 
     (define/public (punsubscribe pattern)
-      (apply-cmd "PUNSUBSCRIBE" pattern)
-      (get-response))
+      (apply-cmd* "PUNSUBSCRIBE" pattern))
 
     (define/public (init)
-      (define-values (i o) (tcp-connect ip port))
-      (set! in i)
-      (set! out o))))
+      (send client init))))

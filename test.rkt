@@ -74,3 +74,15 @@
 (check-equal? (send redis zrem "zset" (list "two" "three")) 2)
 
 (check-equal? (send redis quit) "OK")
+
+;;; subscription tests
+#;(check-equal?
+ (begin
+   (let ([redis (new redis%)])
+     (send redis set-timeout 0.3)
+     (send redis init)
+     (send redis subscribe "foo")
+     (get-field subscribed redis)))
+ #t)
+
+;;; subscription turns off commands
